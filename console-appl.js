@@ -1,18 +1,16 @@
-import promptSync from  "prompt-sync";
-import config from "config";
-const prompt = promptSync({sigint:true});
-const guessNumber = 1 + Math.trunc(Math.random() * 10);
-if(config.has('test') && config.get('test')){
-    console.log(guessNumber);
+import readline from "node:readline"
+const readlineInterface = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+const guessNumber = 5;
+function f() {
+readlineInterface.question("Enter any number: ", num => {
+    console.log(`entering number is ${num}`);
+    if (num != guessNumber) {
+        f();
+    }else readlineInterface.close();
+})
 }
-let running = true;
-do {
-    let num = prompt("guess number from 1 to 10 --> ");
-    if(num == guessNumber) {
-        running = false;
-        console.log('Congratulations');
-    } else {
-        console.log('No. Try again');
-    }
+f();
 
-}while(running);
