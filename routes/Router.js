@@ -1,24 +1,50 @@
 import DocTextService from "../service/DocTextService.js";
 import fs from 'node:fs/promises'
+import { DocTextView } from "../view/DocTextView.js";
+const docTextView = new DocTextView();
+function pipeResponse(stream, response) {
+    stream.map(line => docTextView.renderLine(line)).pipe(response)
+}
 export default class RouterDocText {
     #docTextService
     constructor(emitter) {
         this.#docTextService = new DocTextService();
-       emitter.on('/doc', (file, response) => this.documentation(file, response));
-       emitter.on('/text', (file, response) => this.text(file, response));
+        emitter.on('/doc', (searchParams, response) => this.documentation(searchParams, response));
+        emitter.on('/text', (searchParams, response) => this.text(searchParams, response))
     }
-    async documentation(file, response) {
+    async documentation(searchParams, response) {
+        const file = searchParams.get('file');
+        if (!file) {
+            docTextView.renderError('argument "file" missing', response);
+            return;
+        }
         console.log(`documentation route, file: ${file}`);
-        const handler = await fs.open(file);
-        await (await this.#docTextService.getDocumentation(handler)).pipe(response);
-        response.on('finished', () => response.end());
+        
+        try {
+            const handler = await fs.open(file);
+            const stream = await this.#docTextService.getDocumentation(handler);
+            pipeResponse(stream,response);
+        } catch (error) {
+            docTextView.renderError(`file ${file} cannot be opened`, response)
+        }
+        
     }
-    async text(file,response) {
-        console.log(`text route, file: ${file}`);
-        const handler = await fs.open(file);
-        console.log(`response headers: ${response.getHeaderNames()}`);
-        const stream = await this.#docTextService.getText(handler);
-        stream.pipe(response);
-        response.on('finished', () => response.end());
+    async text(searchParams, response) {
+       
+        const file = searchParams.get('file');
+        if (!file) {
+            docTextView.renderError('argument "file" missing', response);
+            return;
+        }
+        try {
+            const handler = await fs.open(file);
+            const stream = await this.#docTextService.getText(handler);
+            pipeResponse(stream,response);
+        } catch (error) {
+            docTextView.renderError(`file ${file} cannot be opened`, response)
+        }
+    }
+    getRoutes() {
+        return ["/doc", "/text"]
     }
 }

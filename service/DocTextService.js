@@ -6,17 +6,15 @@ export default class DocTextService {
     async getText(file) {
         return await this.#getStream(file, false);
     }
-    async #getStream(handler, isDoc) {
-        
+   async #getStream(handler, isDoc) {
+       
         let streamInput = handler.createReadStream();
         streamInput.setEncoding('utf-8');
         streamInput = streamInput.flatMap(chunk => chunk.split('\n')).filter(line => {
             const res = line.trim().startsWith('//');
-            return isDoc ? res : !res; 
+            return isDoc ? res : !res;
         })
-        .map(line => isDoc ? line.trim().substr(2) + '\n': line);
-        streamInput.forEach(line => console.log(line));
+            .map(line => isDoc ? line.trim().substr(2) : line);
         return streamInput;
     }
-
 }
