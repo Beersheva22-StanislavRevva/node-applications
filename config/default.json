@@ -1,5 +1,10 @@
 {
    "server":{
      "port":3500
-   }
+   },
+   "mongodb": {
+    "uri":"mongo_uri_test",
+    "db":"users"
+   },
+   "nUsers":100
 }
