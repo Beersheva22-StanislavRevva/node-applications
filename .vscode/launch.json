@@ -13,7 +13,8 @@
             ],
             "program": "${workspaceFolder}\\appl-express.js",
             "env": {
-                "ATLAS_URI_ACCOUNTS_TEST":"mongodb+srv://root:12345.com@cluster0.axdldgw.mongodb.net/users?retryWrites=true&w=majority"
+                "ATLAS_URI_COMPANY_TEST":"mongodb+srv://root:12345.com@cluster0.axdldgw.mongodb.net/company?retryWrites=true&w=majority",
+                "JWT_SECRET_TEST": "jwt_secret"
             }
         }
     ]

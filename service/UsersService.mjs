@@ -1,54 +1,62 @@
 import MongoConnection from '../domain/MongoConnection.mjs'
 import bcrypt from 'bcrypt'
-import { Faker, en } from '@faker-js/faker';
-const customFaker = new Faker({
-    locale: [en],
-});
+import config from 'config';
+import jwt from "jsonwebtoken";
+const MONGO_ENV_URI = 'mongodb.env_uri';
+const MONGO_DB_NAME = 'mongodb.db';
+const ENV_JWT_SECTRET = 'jwt.env_secret'
 
 export default class UserService {
     #collection
-    constructor(connection_string, dbName, nUsers) {
+    constructor() {
+        const connection_string = process.env[config.get(MONGO_ENV_URI)];
+        const dbName = config.get(MONGO_DB_NAME);
         const connection = new MongoConnection(connection_string, dbName);
         this.#collection = connection.getCollection('accounts');
-        if (nUsers > 0) {
-            this.generateRandomUsersDB(nUsers);
-       }
     }
     async addAccount(account) {
        const accountDB = await toAccountDB(account);
-       let isExist = [];
-       isExist = await this.#collection.find({"_id": accountDB._id}).toArray();
-       if (isExist.length == 0) {
-       await this.#collection.insertOne(accountDB);
+       try{
+            await this.#collection.insertOne(accountDB);
+        }catch (error) {
+            if(error.code == 11000) {
+                account = null;
+            } else {
+                throw error;
+            }
         }
-       return account;
+             return account;
+    }
 
+    async getAccount(username) {
+        const document = await this.#collection.findOne({_id:username});
+        return document == null ? null : toAccount(document);
     }
-    toAccount(accountDB) {
-        const res = {...accountDB, username:accountDB._id};
-        delete res._id;
-        return res;
-    }
-    async generateRandomUsersDB(nUsers){
-        for (let i = 0; i < nUsers; i++){
-            const randomUser = generateRandomUser();
-            await this.addAccount(randomUser);
+
+    async login(loginData) {
+        const account = await this.getAccount(loginData.username);
+        let accessToken;
+        if(account && await bcrypt.compare(loginData.password, account.passwordHash)) {
+            accessToken = getJwt(account.username, account.roles);
         }
+        return accessToken;
     }
-    
 }
+
+function getJwt(username, roles) {
+    return jwt.sign({roles}, process.env[config.get(ENV_JWT_SECTRET)], {
+        expiresIn : config.get("jwt.expiresIn"),
+        subject: username
+    })
+}
+
+function toAccount(accountdb) {
+    const res = {username: accountdb._id, roles: accountdb.roles, passwordHash: accountdb.passwordHash};
+    return res;
+}
+
 async function toAccountDB(account) {
     const passwordHash = await bcrypt.hash(account.password, 10); 
     const res = {_id: account.username, passwordHash, roles:account.roles}
       return res;
-}
-function generateRandomUser() {
-    const username = customFaker.person.firstName();
-    const password = "12345@com";
-    const roles = customFaker.helpers.arrayElement(['ADMIN', 'USER', ['ADMIN','USER']]);
-    return {
-        username: username,
-        password: password,
-        roles: roles
-    };
 }
