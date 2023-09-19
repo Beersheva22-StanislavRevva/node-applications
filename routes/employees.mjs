@@ -1,88 +1,75 @@
-import express from "express";
-import asyncHandler from 'express-async-handler';
-import EmployeesService from "../service/EmployeesService.mjs";
-import authVerification from '../middleware/authVerification.mjs';
-import Joi from 'joi';
-import config from 'config';
+import express from 'express';
+import asyncHandler from 'express-async-handler'
+import EmployeesService from '../service/EmployeesService.mjs';
 import { validate } from "../middleware/validation.mjs";
+import config from 'config'
+import authVerification from "../middleware/authVerification.mjs";
+import Joi from 'joi'
+import valid from '../middleware/valid.mjs';
 export const employees = express.Router();
-
-const DEPTS = config.get('employee.departments');
-const MIN_SALARY = config.get('employee.minSalary');
-const MAX_SALARY = config.get('employee.maxSalary');
-const MIN_DATE = config.get('employee.minDate');
-const MAX_DATE = config.get('employee.maxDate');
-const MIN_ID = config.get('employee.minId');
-const MAX_ID = config.get('employee.maxId');
-
 const employeesService = new EmployeesService();
+const {minId, maxId, minDate, maxDate, departments, minSalary, maxSalary} = config.get('employee');
 const schema = Joi.object({
-    name: Joi.string().pattern(/^([A-Z][a-z]{1,15})$/).required(),
-    department: Joi.string().valid(...DEPTS).required(),
-    salary: Joi.number().min(MIN_SALARY).max(MAX_SALARY).required(),
-    gender: Joi.string().valid('male', 'female').required(),
-    birthDate: Joi.date().min(MIN_DATE).max(MAX_DATE).required(),
-    id: Joi.number().min(MIN_ID).max(MAX_ID)
+    id: Joi.number().min(minId).max(maxId),
+    birthDate: Joi.date().iso().less(maxDate).greater(minDate).required(),
+    name: Joi.string().required(),
+    department: Joi.string().valid(...departments).required(),
+    salary: Joi.number().min(minSalary).max(maxSalary).required(),
+    gender: Joi.string().valid('male', 'female').required()
 })
-
-employees.delete('/:id', asyncHandler(
+employees.use(validate(schema));
+employees.delete('/:id', authVerification("ADMIN"), asyncHandler(
     async (req, res) => {
         const id = +req.params.id;
         if (!await employeesService.deleteEmployee(id)){
-                res.status(404);
-                throw `employee with id ${id} not found`
+            res.status(404);
+            throw `employee with id ${id} not found`
         }
         res.send();
     }
 ))
-employees.use(validate(schema))
-employees.post('', authVerification("ADMIN"),asyncHandler(
-    async (req,res) => {
-        if(req.joiError) {
+
+employees.post('',authVerification("ADMIN"), valid, asyncHandler(
+    async (req, res) => {
+
+        const employee = await employeesService.addEmployee(req.body);
+        if (!employee && req.body.id) {
             res.status(400);
-            throw (req.joiError)
+            throw `employee with id ${req.body.id} already exists`
         }
-        const emplRes = await employeesService.addEmployee(req.body);
-        if (emplRes == null) {
-            res.status(400);
-            throw `employee with id:${req.body.id} already exists`
-        }
-        res.status(201).send(emplRes);
-    }
-) )
-employees.get('/:id',authVerification("ADMIN", "USER"),asyncHandler(
-    async (req,res) => {
-        const emplId = +req.params.id;
-        const emplRes = await employeesService.getEmployee(emplId);
-        if(!emplRes) {
-            res.status(404);
-            throw `employee with id ${emplId} not found`
-        }
-        res.send(emplRes);
+        res.send(employee);
     }
 ))
-employees.get('',authVerification("ADMIN", "USER"),asyncHandler(
-    async (req,res) => {
-        const employeesRes = await employeesService.getAllEmployees();
-        if(employeesRes.length == 0) {
-            res.status(404);
-            throw 'employees collection is empty'
+employees.put('/:id',authVerification("ADMIN"),valid, asyncHandler(
+    async (req, res) => {
+      
+        if (req.params.id != req.body.id) {
+            res.status(400);
+            throw `id in request parameter (${req.params.id}) doesn't match the id in employee object (req.body.id)`
         }
-        res.send(employeesRes);
+        const employee = await employeesService.updateEmployee(req.body);
+        if (!employee) {
+            res.status(404);
+            throw `employee with id ${req.body.id} doesn't exist`
+        }
+        res.send(employee);
     }
 ))
-employees.put('/:id',authVerification("ADMIN"), asyncHandler(
+
+ employees.get('', authVerification("ADMIN", "USER"),asyncHandler(
     async(req,res) => {
-        if(req.joiError) {
-            res.status(400);
-            throw (req.joiError)
-        }
-        const id = +req.params.id;
-        const emplRes = await employeesService.updateEmployee({...req.body, id});
-        if (emplRes==null) {
-            res.status(400);
-            throw `employee with id ${req.body.id} wasn't updated`
-        }
-        res.status(200).send(emplRes);
+        const employees = await employeesService.getAllEmployees();
+        res.send(employees);
     }
+))
+employees.get('/:id',authVerification("ADMIN", "USER"), asyncHandler(
+   async (req, res) => {
+    
+    const employee = await employeesService.getEmployee(+req.params.id);
+    if (!employee) {
+        res.status(404);
+        throw `employee with id ${req.params.id} doesn't exist`
+    }
+    res.send(employee)
+   } 
 ))

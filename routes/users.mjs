@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { validate } from '../middleware/validation.mjs';
 import UsersService from '../service/UsersService.mjs';
 import authVerification from '../middleware/authVerification.mjs';
+import valid from '../middleware/valid.mjs';
 export const users = express.Router();
 const usersService = new UsersService()
 const schema = Joi.object({
@@ -12,15 +13,8 @@ const schema = Joi.object({
     roles: Joi.array().items(Joi.string().valid('ADMIN', 'USER')).required()
 })
 users.use(validate(schema))
-users.post('/sign-up', authVerification("ADMIN_ACCOUNTS"),  asyncHandler(async (req, res) => {
-    if(!req.validated) {
-        res.status(500);
-       throw ("This API requires validation")
-    }
-     if(req.joiError) {
-        res.status(400);
-        throw (req.joiError)
-    }
+users.post('', authVerification("ADMIN_ACCOUNTS"), valid,  asyncHandler(async (req, res) => {
+    
     const accountRes = await usersService.addAccount(req.body);
     if (accountRes == null) {
         res.status(400);
