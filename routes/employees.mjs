@@ -36,7 +36,7 @@ employees.delete('/:id', asyncHandler(
     }
 ))
 employees.use(validate(schema))
-employees.post('/add', authVerification("ADMIN"),asyncHandler(
+employees.post('', authVerification("ADMIN"),asyncHandler(
     async (req,res) => {
         if(req.joiError) {
             res.status(400);
@@ -71,13 +71,14 @@ employees.get('',authVerification("ADMIN", "USER"),asyncHandler(
         res.send(employeesRes);
     }
 ))
-employees.put('/update',authVerification("ADMIN", "USER"), asyncHandler(
+employees.put('/:id',authVerification("ADMIN"), asyncHandler(
     async(req,res) => {
         if(req.joiError) {
             res.status(400);
             throw (req.joiError)
         }
-        const emplRes = await employeesService.updateEmployee(req.body);
+        const id = +req.params.id;
+        const emplRes = await employeesService.updateEmployee({...req.body, id});
         if (emplRes==null) {
             res.status(400);
             throw `employee with id ${req.body.id} wasn't updated`
