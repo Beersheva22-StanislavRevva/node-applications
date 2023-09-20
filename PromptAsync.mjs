@@ -7,9 +7,6 @@ const readlineInterface = readline.createInterface({
 readlineInterface.on('SIGINT', () => console.log(`^C is forbidden`));
 export class PromptAsync extends EventEmitter {
     
-
-
-   
     prompt(promptStr) {
        
         return new Promise(resolve => {
